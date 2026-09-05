@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spinner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#000;
+    --dim:#3a3a3a;
+    --mid:#8a8a8a;
+    --hot:#fff;
+    --red:#e23b2e;
+    --row:64px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--hot);font-family:"Archivo",system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+  body.hide-cursor{cursor:none}
+
+  .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none}
+  .reel{position:relative;height:calc(var(--row) * 7);width:min(92vw,900px);overflow:hidden;
+        -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 78%,transparent 100%);
+        mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 78%,transparent 100%)}
+  .track{position:absolute;left:0;right:0;top:0;will-change:transform}
+  .item{height:var(--row);display:flex;align-items:center;justify-content:center;
+        font-size:clamp(20px,3.4vw,38px);font-weight:700;letter-spacing:.02em;text-transform:uppercase;
+        color:var(--mid);white-space:nowrap;transition:color .12s linear}
+  .item.center{color:var(--hot)}
+  .item.near{color:#b5b5b5}
+  .item.far{color:var(--dim)}
+  .reel.done .item:not(.center){color:var(--dim)}
+
+  .marks{position:absolute;top:50%;right:calc(50% - min(46vw,450px) - 40px);transform:translateY(-50%);
+         width:18px;height:calc(var(--row) - 26px);pointer-events:none}
+  .marks::before,.marks::after{content:"";position:absolute;right:0;width:14px;height:8px;border-right:2px solid var(--red)}
+  .marks::before{top:0;border-top:2px solid var(--red)}
+  .marks::after{bottom:0;border-bottom:2px solid var(--red)}
+
+  .hint{position:fixed;left:0;right:0;bottom:22px;text-align:center;font-size:11px;font-weight:500;letter-spacing:.06em;color:#5c5c5c;text-transform:uppercase}
+  .hint span{margin:0 10px}
+  @media (max-width:640px){.hint .desk{display:none}}
+
+  .setup{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;padding:24px}
+  .setup.open{display:flex}
+  .panel{width:min(520px,100%);background:#0e0e0e;border:1px solid #262626;padding:28px}
+  .panel h1{font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+  .panel p{font-size:13px;color:#8a8a8a;line-height:1.5;margin-bottom:16px}
+  textarea{width:100%;height:240px;background:#000;color:#fff;border:1px solid #333;padding:14px;
+           font:16px/1.6 "Archivo",system-ui,sans-serif;text-transform:uppercase;resize:vertical;outline:none}
+  textarea:focus{border-color:#666}
+  .err{color:var(--red);font-size:13px;min-height:18px;margin-top:8px}
+  .row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+         padding:12px 18px;border:1px solid #444;background:#000;color:#fff;cursor:pointer}
+  button.primary{background:#fff;color:#000;border-color:#fff}
+  button:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+  .share{font-size:12px;color:#8a8a8a;margin-top:14px;word-break:break-all}
+  .share b{color:#fff;font-weight:500}
+
+  .gear{position:fixed;top:18px;right:18px;background:none;border:none;color:#5c5c5c;padding:8px;cursor:pointer}
+  .gear:hover{color:#fff}
+  .gear svg{width:20px;height:20px;display:block}
+
+  @media (prefers-reduced-motion:reduce){.item{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="reel" id="reel">
+    <div class="track" id="track"></div>
+  </div>
+  <div class="marks"></div>
+</div>
+
+<button class="gear" id="gear" aria-label="Edit options" title="Edit options (S)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+</button>
+
+<div class="hint" id="hint">
+  <span class="desk">Press space to spin</span><span class="mob">Tap to spin</span>
+  <span class="desk">S for setup</span>
+  <span class="desk">F for full screen</span>
+  <span class="desk">M to mute</span>
+</div>
+
+<div class="setup" id="setup" role="dialog" aria-label="Edit options">
+  <div class="panel">
+    <h1>Options</h1>
+    <p>One per line. Minimum 2, maximum 40. Space or Enter spins; Esc closes this.</p>
+    <textarea id="opts" spellcheck="false"></textarea>
+    <div class="err" id="err"></div>
+    <div class="row">
+      <button class="primary" id="save">Save and close</button>
+      <button id="reset">Reset to default</button>
+      <button id="copy">Copy share link</button>
+    </div>
+    <div class="share">Share link locks in your list for anyone who opens it: <b id="linkPreview"></b></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const DEFAULTS = [
+    "Build an app","Airbnb arbitrage","Print on demand","Dropshipping",
+    "YT kids channel","Meta ads","Trading","Faceless TikTok","Amazon FBA",
+    "Newsletter","UGC creator","Notion templates"
+  ];
+  const ROW = 64, VISIBLE = 7, MID = Math.floor(VISIBLE/2);
+  const reel = document.getElementById("reel");
+  const track = document.getElementById("track");
+  const setup = document.getElementById("setup");
+  const ta = document.getElementById("opts");
+  const err = document.getElementById("err");
+  const linkPreview = document.getElementById("linkPreview");
+
+  let options = load();
+  let items = [];           // DOM nodes in track
+  let offset = 0;           // px scrolled (0 => options[0] centered)
+  let spinning = false;
+  let muted = store.get("spinner.muted") === "1";
+  let lastTick = -1;
+  let audio;
+
+  function parse(text){
+    const seen = new Set();
+    return text.split("\n").map(s => s.trim()).filter(s => s && !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()));
+  }
+  function load(){
+    const h = location.hash.slice(1);
+    if (h) { try { const arr = JSON.parse(decodeURIComponent(atob(h))); if (Array.isArray(arr) && arr.length >= 2) return arr; } catch(e){} }
+    try { const arr = JSON.parse(store.get("spinner.options")); if (Array.isArray(arr) && arr.length >= 2) return arr; } catch(e){}
+    return DEFAULTS.slice();
+  }
+  const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+  function persist(){ store.set("spinner.options", JSON.stringify(options)); }
+  function shareLink(){
+    const base = location.protocol.startsWith("http") ? location.origin + location.pathname : "";
+    return base + "#" + btoa(encodeURIComponent(JSON.stringify(options)));
+  }
+  function clearHash(){ try { history.replaceState(null, "", location.pathname); } catch(e) { try { location.hash = ""; } catch(_){} } }
+
+  // Build enough repeats that any spin length never runs off the track.
+  function build(){
+    const n = options.length;
+    const REPEATS = Math.max(12, Math.ceil(120 / n) + 2);
+    track.innerHTML = "";
+    items = [];
+    for (let r = 0; r < REPEATS; r++) for (let i = 0; i < n; i++) {
+      const d = document.createElement("div");
+      d.className = "item"; d.textContent = options[i]; d.dataset.i = i;
+      track.appendChild(d); items.push(d);
+    }
+    offset = ROW * (n * Math.floor(REPEATS/2)); // start in the middle band
+    reel.classList.remove("done");
+    render();
+  }
+
+  function render(){
+    // translate so that row at `offset` sits in the center slot
+    track.style.transform = `translate3d(0, ${MID*ROW - offset}px, 0)`;
+    const c = Math.round(offset / ROW);
+    for (let k = c - MID - 1; k <= c + MID + 1; k++) {
+      const el = items[k]; if (!el) continue;
+      const dist = Math.abs(k - c);
+      el.className = "item " + (dist === 0 ? "center" : dist === 1 ? "near" : "far");
+    }
+    if (c !== lastTick) { lastTick = c; tick(); }
+  }
+
+  function tick(){
+    if (muted || !spinning) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audio.currentTime, o = audio.createOscillator(), g = audio.createGain();
+      o.type = "square"; o.frequency.value = 1800;
+      g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + 0.04);
+    } catch(e){}
+  }
+
+  function spin(){
+    if (spinning || setup.classList.contains("open")) return;
+    spinning = true;
+    reel.classList.remove("done");
+    const n = options.length;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const winner = Math.floor(Math.random() * n);
+    const curIdx = Math.round(offset / ROW);
+    const curOpt = ((curIdx % n) + n) % n;
+    let steps = (winner - curOpt + n) % n;
+    if (steps === 0) steps = n;
+    const laps = reduce ? 1 : 4 + Math.floor(Math.random() * 3);
+    const total = steps + laps * n;
+    // keep within track
+    if (curIdx + total + MID + 2 >= items.length) { build(); return spin(); }
+
+    const from = offset, to = offset + total * ROW;
+    const dur = reduce ? 900 : 3600 + Math.random() * 1200;
+    const t0 = performance.now();
+    const ease = t => 1 - Math.pow(1 - t, 4);
+    (function frame(now){
+      const p = Math.min(1, (now - t0) / dur);
+      offset = from + (to - from) * ease(p);
+      render();
+      if (p < 1) requestAnimationFrame(frame);
+      else { offset = to; render(); spinning = false; reel.classList.add("done"); }
+    })(t0);
+  }
+
+  // --- setup panel ---
+  function openSetup(){
+    ta.value = options.join("\n"); err.textContent = "";
+    linkPreview.textContent = shareLink();
+    setup.classList.add("open"); ta.focus();
+  }
+  function closeSetup(){ setup.classList.remove("open"); }
+  function save(){
+    const arr = parse(ta.value);
+    if (arr.length < 2) { err.textContent = "Add at least 2 options."; return; }
+    if (arr.length > 40) { err.textContent = "Max 40 options."; return; }
+    options = arr; persist(); clearHash();
+    build(); closeSetup();
+  }
+  document.getElementById("save").onclick = save;
+  document.getElementById("reset").onclick = () => { ta.value = DEFAULTS.join("\n"); err.textContent = ""; };
+  document.getElementById("copy").onclick = async (e) => {
+    const arr = parse(ta.value);
+    if (arr.length < 2) { err.textContent = "Add at least 2 options first."; return; }
+    options = arr; persist();
+    const url = shareLink(); linkPreview.textContent = url;
+    try { await navigator.clipboard.writeText(url); e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy share link", 1500); }
+    catch(_) { err.textContent = "Copy failed. Select the link below and copy it."; }
+  };
+  document.getElementById("gear").onclick = openSetup;
+  ta.addEventListener("input", () => err.textContent = "");
+  setup.addEventListener("click", e => { if (e.target === setup) closeSetup(); });
+
+  // --- input ---
+  document.addEventListener("keydown", e => {
+    if (setup.classList.contains("open")) { if (e.key === "Escape") closeSetup(); if ((e.metaKey || e.ctrlKey) && e.key === "Enter") save(); return; }
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); spin(); }
+    else if (e.key.toLowerCase() === "s") openSetup();
+    else if (e.key.toLowerCase() === "f") toggleFull();
+    else if (e.key.toLowerCase() === "m") { muted = !muted; store.set("spinner.muted", muted ? "1" : "0"); }
+  });
+  document.getElementById("stage").addEventListener("pointerdown", spin);
+
+  function toggleFull(){
+    const el = document.documentElement;
+    if (!document.fullscreenElement) (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  }
+
+  // hide cursor when idle (for recording)
+  let idle;
+  document.addEventListener("mousemove", () => {
+    document.body.classList.remove("hide-cursor"); clearTimeout(idle);
+    idle = setTimeout(() => { if (!setup.classList.contains("open")) document.body.classList.add("hide-cursor"); }, 2000);
+  });
+
+  build();
+})();
+</script>
+</body>
+</html>
