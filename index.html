@@ -23,11 +23,12 @@
   .reel{position:relative;height:calc(var(--row) * 7);width:min(92vw,900px);overflow:hidden;
         -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 78%,transparent 100%);
         mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 78%,transparent 100%)}
-  .track{position:absolute;left:0;right:0;top:0;will-change:transform}
+  .track{position:absolute;left:0;right:0;top:0;will-change:transform;transform:translateZ(0)}
+  .reel{will-change:transform}
   .item span{display:inline-block}
   .item{height:var(--row);display:flex;align-items:center;justify-content:center;
         font-size:clamp(20px,3.4vw,38px);font-weight:700;letter-spacing:.02em;text-transform:uppercase;
-        color:var(--mid);white-space:nowrap;transition:color .12s linear}
+        color:var(--mid);white-space:nowrap}
   .item.center{color:var(--hot)}
   .item.near{color:#b5b5b5}
   .item.far{color:var(--dim)}
@@ -70,9 +71,9 @@
 
   .leds{position:fixed;left:0;right:0;height:10px;display:flex;justify-content:space-between;padding:0 12px;pointer-events:none;z-index:2}
   .leds.top{top:12px}.leds.bottom{bottom:12px}
-  .led{width:5px;height:5px;border-radius:50%;background:transparent;flex:none;transition:background .07s ease,box-shadow .07s ease}
-  .leds.off .led{background:transparent !important;box-shadow:none !important}
-  .led.on{background:#ff4a3b;box-shadow:0 0 4px 1px rgba(255,74,59,.9),0 0 10px 2px rgba(255,60,45,.45)}
+  .leds{will-change:opacity}
+  .leds.off{opacity:0}
+  .led{width:5px;height:5px;border-radius:50%;background:#ff4a3b;box-shadow:0 0 4px 1px rgba(255,74,59,.9),0 0 10px 2px rgba(255,60,45,.45);flex:none}
   .led.half{background:#a8291f;box-shadow:0 0 3px 1px rgba(255,74,59,.35)}
 
   .track.blur{filter:blur(2.5px)}
@@ -87,7 +88,7 @@
   .hint{bottom:26px}
   body.full .hint,body.full .gear{display:none}
 
-  @media (prefers-reduced-motion:reduce){.item{transition:none}.led{transition:none}.track.blur{filter:none}}
+  @media (prefers-reduced-motion:reduce){.item{transition:none}.leds{transition:none}.track.blur{filter:none}}
 </style>
 </head>
 <body>
@@ -159,7 +160,7 @@
   let offset = 0;           // px scrolled (0 => options[0] centered)
   let spinning = false;
   let muted = store.get("spinner.muted") === "1";
-  let lastTick = -1;
+  let lastTick = -9999;
   let audio;
 
   function parse(text){
@@ -201,6 +202,7 @@
       track.appendChild(d); items.push(d);
     }
     offset = ROW * (n * Math.floor(REPEATS/2)); // start in the middle band
+    lastTick = -9999;
     reel.classList.remove("done");
     document.getElementById("again").classList.remove("show");
     render();
@@ -212,12 +214,14 @@
     // translate so that row at `offset` sits in the center slot
     track.style.transform = `translate3d(0, ${MID*ROW - offset}px, 0)`;
     const c = Math.round(offset / ROW);
+    if (c === lastTick) return;
+    for (let k = lastTick - MID - 1; k <= lastTick + MID + 1; k++) { const el = items[k]; if (el && Math.abs(k - c) > MID + 1) el.className = "item far"; }
     for (let k = c - MID - 1; k <= c + MID + 1; k++) {
       const el = items[k]; if (!el) continue;
       const dist = Math.abs(k - c);
       el.className = "item " + (dist === 0 ? "center" : dist === 1 ? "near" : "far");
     }
-    if (c !== lastTick) { lastTick = c; tick(); }
+    lastTick = c; tick();
   }
 
   function tick(){
@@ -348,10 +352,10 @@
       ledNext = now + (spinning ? 400 : 1000);
       strips.forEach(st => st.classList.toggle("off", !ledOn));
     }
-    if (ledOn) for (const l of leds) {
+    if (ledOn && !spinning) for (const l of leds) {
       if (now < l.next) continue;
-      l.el.className = "led " + (Math.random() < 0.92 ? "on" : "half");
-      l.next = now + 150 + Math.random() * 600;
+      l.el.className = Math.random() < 0.92 ? "led" : "led half";
+      l.next = now + 250 + Math.random() * 900;
     }
     requestAnimationFrame(flicker);
   }
