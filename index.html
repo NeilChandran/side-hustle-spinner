@@ -24,6 +24,7 @@
         -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 78%,transparent 100%);
         mask-image:linear-gradient(to bottom,transparent 0,#000 22%,#000 78%,transparent 100%)}
   .track{position:absolute;left:0;right:0;top:0;will-change:transform}
+  .item span{display:inline-block}
   .item{height:var(--row);display:flex;align-items:center;justify-content:center;
         font-size:clamp(20px,3.4vw,38px);font-weight:700;letter-spacing:.02em;text-transform:uppercase;
         color:var(--mid);white-space:nowrap;transition:color .12s linear}
@@ -32,7 +33,7 @@
   .item.far{color:var(--dim)}
   .reel.done .item:not(.center){color:var(--dim)}
 
-  .marks{position:absolute;top:50%;right:calc(50% - min(46vw,450px) - 40px);transform:translateY(-50%);
+  .marks{position:absolute;top:50%;left:0;transform:translateY(-50%);
          width:18px;height:calc(var(--row) - 26px);pointer-events:none}
   .marks::before,.marks::after{content:"";position:absolute;right:0;width:14px;height:8px;border-right:2px solid var(--red)}
   .marks::before{top:0;border-top:2px solid var(--red)}
@@ -67,13 +68,36 @@
   .gear:hover{color:#fff}
   .gear svg{width:20px;height:20px;display:block}
 
-  @media (prefers-reduced-motion:reduce){.item{transition:none}}
+  .leds{position:fixed;left:0;right:0;height:10px;display:flex;justify-content:space-between;padding:0 12px;pointer-events:none;z-index:2}
+  .leds.top{top:12px}.leds.bottom{bottom:12px}
+  .led{width:5px;height:5px;border-radius:50%;background:transparent;flex:none;transition:background .07s ease,box-shadow .07s ease}
+  .leds.off .led{background:transparent !important;box-shadow:none !important}
+  .led.on{background:#ff4a3b;box-shadow:0 0 4px 1px rgba(255,74,59,.9),0 0 10px 2px rgba(255,60,45,.45)}
+  .led.half{background:#a8291f;box-shadow:0 0 3px 1px rgba(255,74,59,.35)}
+
+  .track.blur{filter:blur(2.5px)}
+  .glow{position:absolute;left:0;right:0;top:calc(var(--row) * 3);height:var(--row);opacity:0;pointer-events:none;
+        background:linear-gradient(90deg,transparent 0,rgba(226,59,46,.16) 20%,rgba(226,59,46,.34) 50%,rgba(226,59,46,.16) 80%,transparent 100%)}
+  .reel.done .glow{opacity:1;transition:opacity .25s ease}
+
+  .again{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);padding:12px 34px;background:transparent;border:1px solid var(--red);color:var(--red);
+         font-size:12px;letter-spacing:.14em;opacity:0;pointer-events:none;transition:opacity .25s ease}
+  .again.show{opacity:1;pointer-events:auto}
+  .again:hover{background:rgba(226,59,46,.12)}
+  .hint{bottom:26px}
+  body.full .hint,body.full .gear{display:none}
+
+  @media (prefers-reduced-motion:reduce){.item{transition:none}.led{transition:none}.track.blur{filter:none}}
 </style>
 </head>
 <body>
 
+<div class="leds top" id="ledTop" aria-hidden="true"></div>
+<div class="leds bottom" id="ledBottom" aria-hidden="true"></div>
+
 <div class="stage" id="stage">
   <div class="reel" id="reel">
+    <div class="glow" aria-hidden="true"></div>
     <div class="track" id="track"></div>
   </div>
   <div class="marks"></div>
@@ -82,6 +106,8 @@
 <button class="gear" id="gear" aria-label="Edit options" title="Edit options (S)">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
 </button>
+
+<button class="again" id="again">Spin again</button>
 
 <div class="hint" id="hint">
   <span class="desk">Press space to spin</span><span class="mob">Tap to spin</span>
@@ -119,6 +145,8 @@
   const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
   const ROW = 64, VISIBLE = 7, MID = Math.floor(VISIBLE/2);
   const reel = document.getElementById("reel");
+  const marks = document.querySelector(".marks");
+  const stageEl = document.getElementById("stage");
   const track = document.getElementById("track");
   const setup = document.getElementById("setup");
   const ta = document.getElementById("opts");
@@ -164,11 +192,12 @@
     items = [];
     for (let r = 0; r < REPEATS; r++) for (let i = 0; i < n; i++) {
       const d = document.createElement("div");
-      d.className = "item"; d.textContent = options[i]; d.dataset.i = i;
+      d.className = "item"; d.dataset.i = i; const sp = document.createElement("span"); sp.textContent = options[i]; d.appendChild(sp);
       track.appendChild(d); items.push(d);
     }
     offset = ROW * (n * Math.floor(REPEATS/2)); // start in the middle band
     reel.classList.remove("done");
+    document.getElementById("again").classList.remove("show");
     render();
   }
 
@@ -181,6 +210,8 @@
       const dist = Math.abs(k - c);
       el.className = "item " + (dist === 0 ? "center" : dist === 1 ? "near" : "far");
     }
+    const ce = items[c];
+    if (ce) { marks.style.left = (ce.firstChild.getBoundingClientRect().right - stageEl.getBoundingClientRect().left + 22) + "px"; }
     if (c !== lastTick) { lastTick = c; tick(); }
   }
 
@@ -201,6 +232,8 @@
     const n = options.length;
     if (Math.round(offset / ROW) > n * 10) build();
     spinning = true;
+    document.body.classList.add("spinning");
+    document.getElementById("again").classList.remove("show");
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const winner = (rig >= 0 && rig < n) ? rig : Math.floor(Math.random() * n);
     const curIdx = Math.round(offset / ROW);
@@ -219,7 +252,12 @@
       offset = from + (to - from) * ease(p);
       render();
       if (p < 1) requestAnimationFrame(frame);
-      else { offset = to; render(); spinning = false; reel.classList.add("done"); }
+      else {
+        offset = to; render(); spinning = false; track.classList.remove("blur");
+        document.body.classList.remove("spinning");
+        reel.classList.add("done");
+        setTimeout(() => document.getElementById("again").classList.add("show"), 350);
+      }
     })(t0);
   }
 
@@ -268,7 +306,10 @@
     else if (e.key.toLowerCase() === "m") { muted = !muted; store.set("spinner.muted", muted ? "1" : "0"); }
   });
   document.getElementById("stage").addEventListener("pointerdown", spin);
+  document.getElementById("again").addEventListener("click", e => { e.stopPropagation(); spin(); });
 
+  document.addEventListener("fullscreenchange", () => document.body.classList.toggle("full", !!document.fullscreenElement));
+  document.addEventListener("webkitfullscreenchange", () => document.body.classList.toggle("full", !!document.webkitFullscreenElement));
   function toggleFull(){
     const el = document.documentElement;
     if (!document.fullscreenElement) (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
@@ -281,6 +322,37 @@
     document.body.classList.remove("hide-cursor"); clearTimeout(idle);
     idle = setTimeout(() => { if (!setup.classList.contains("open")) document.body.classList.add("hide-cursor"); }, 2000);
   });
+
+  let leds = [];
+  function buildLeds(){
+    const count = Math.max(24, Math.floor(window.innerWidth / 22));
+    leds = [];
+    for (const id of ["ledTop","ledBottom"]) {
+      const strip = document.getElementById(id); strip.innerHTML = "";
+      for (let i = 0; i < count; i++) {
+        const d = document.createElement("span"); d.className = "led"; strip.appendChild(d);
+        leds.push({ el: d, next: 0, state: Math.random() < 0.6 ? 1 : 0 });
+      }
+    }
+  }
+  const strips = [document.getElementById("ledTop"), document.getElementById("ledBottom")];
+  let ledOn = true, ledNext = 0;
+  function flicker(now){
+    if (now >= ledNext) {
+      ledOn = !ledOn;
+      ledNext = now + (spinning ? 400 : 1000);
+      strips.forEach(st => st.classList.toggle("off", !ledOn));
+    }
+    if (ledOn) for (const l of leds) {
+      if (now < l.next) continue;
+      l.el.className = "led " + (Math.random() < 0.92 ? "on" : "half");
+      l.next = now + 150 + Math.random() * 600;
+    }
+    requestAnimationFrame(flicker);
+  }
+  buildLeds();
+  requestAnimationFrame(flicker);
+  let rs; window.addEventListener("resize", () => { clearTimeout(rs); rs = setTimeout(buildLeds, 150); });
 
   build();
 })();
