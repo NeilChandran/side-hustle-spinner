@@ -40,7 +40,8 @@
 
   .hint{position:fixed;left:0;right:0;bottom:22px;text-align:center;font-size:11px;font-weight:500;letter-spacing:.06em;color:#5c5c5c;text-transform:uppercase}
   .hint span{margin:0 10px}
-  @media (max-width:640px){.hint .desk{display:none}}
+  .hint .mob{display:none}
+  @media (max-width:640px){.hint .desk{display:none}.hint .mob{display:inline}}
 
   .setup{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;padding:24px}
   .setup.open{display:flex}
@@ -108,6 +109,7 @@
     "YT kids channel","Meta ads","Trading","Faceless TikTok","Amazon FBA",
     "Newsletter","UGC creator","Notion templates"
   ];
+  const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
   const ROW = 64, VISIBLE = 7, MID = Math.floor(VISIBLE/2);
   const reel = document.getElementById("reel");
   const track = document.getElementById("track");
@@ -134,7 +136,6 @@
     try { const arr = JSON.parse(store.get("spinner.options")); if (Array.isArray(arr) && arr.length >= 2) return arr; } catch(e){}
     return DEFAULTS.slice();
   }
-  const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
   function persist(){ store.set("spinner.options", JSON.stringify(options)); }
   function shareLink(){
     const base = location.protocol.startsWith("http") ? location.origin + location.pathname : "";
