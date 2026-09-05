@@ -185,6 +185,11 @@
   function clearHash(){ try { history.replaceState(null, "", location.pathname); } catch(e) { try { location.hash = ""; } catch(_){} } }
 
   // Build enough repeats that any spin length never runs off the track.
+  function placeMarks(){
+    let w = 0;
+    for (const el of track.children) { w = Math.max(w, el.firstChild.getBoundingClientRect().width); if (el.dataset.i == options.length - 1) break; }
+    marks.style.left = Math.round(reel.getBoundingClientRect().left - stageEl.getBoundingClientRect().left + reel.clientWidth / 2 + w / 2 + 40) + "px";
+  }
   function build(){
     const n = options.length;
     const REPEATS = 20;
@@ -199,6 +204,8 @@
     reel.classList.remove("done");
     document.getElementById("again").classList.remove("show");
     render();
+    placeMarks();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeMarks);
   }
 
   function render(){
@@ -210,8 +217,6 @@
       const dist = Math.abs(k - c);
       el.className = "item " + (dist === 0 ? "center" : dist === 1 ? "near" : "far");
     }
-    const ce = items[c];
-    if (ce) { marks.style.left = (ce.firstChild.getBoundingClientRect().right - stageEl.getBoundingClientRect().left + 22) + "px"; }
     if (c !== lastTick) { lastTick = c; tick(); }
   }
 
@@ -352,7 +357,7 @@
   }
   buildLeds();
   requestAnimationFrame(flicker);
-  let rs; window.addEventListener("resize", () => { clearTimeout(rs); rs = setTimeout(buildLeds, 150); });
+  let rs; window.addEventListener("resize", () => { clearTimeout(rs); rs = setTimeout(() => { buildLeds(); placeMarks(); }, 150); });
 
   build();
 })();
