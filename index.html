@@ -51,6 +51,9 @@
   textarea{width:100%;height:240px;background:#000;color:#fff;border:1px solid #333;padding:14px;
            font:16px/1.6 "Archivo",system-ui,sans-serif;text-transform:uppercase;resize:vertical;outline:none}
   textarea:focus{border-color:#666}
+  .land{display:flex;align-items:center;gap:12px;margin-top:14px;font-size:13px;color:#8a8a8a}
+  select{flex:1;background:#000;color:#fff;border:1px solid #333;padding:10px 12px;font:14px "Archivo",system-ui,sans-serif;text-transform:uppercase;outline:none}
+  select:focus{border-color:#666}
   .err{color:var(--red);font-size:13px;min-height:18px;margin-top:8px}
   .row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
   button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
@@ -90,8 +93,12 @@
 <div class="setup" id="setup" role="dialog" aria-label="Edit options">
   <div class="panel">
     <h1>Options</h1>
-    <p>One per line. Minimum 2, maximum 40. Space or Enter spins; Esc closes this.</p>
+    <p>One per line. Minimum 2, maximum 40. Space or Enter spins; Esc closes this. "Land on" fixes the result every spin; share links carry it too.</p>
     <textarea id="opts" spellcheck="false"></textarea>
+    <div class="land">
+      <label for="landOn">Land on</label>
+      <select id="landOn"></select>
+    </div>
     <div class="err" id="err"></div>
     <div class="row">
       <button class="primary" id="save">Save and close</button>
@@ -118,6 +125,7 @@
   const err = document.getElementById("err");
   const linkPreview = document.getElementById("linkPreview");
 
+  let rig = -1;
   let options = load();
   let items = [];           // DOM nodes in track
   let offset = 0;           // px scrolled (0 => options[0] centered)
@@ -130,16 +138,21 @@
     const seen = new Set();
     return text.split("\n").map(s => s.trim()).filter(s => s && !seen.has(s.toLowerCase()) && seen.add(s.toLowerCase()));
   }
+  function unpack(v){
+    if (Array.isArray(v)) return v.length >= 2 ? v : null;
+    if (v && Array.isArray(v.o) && v.o.length >= 2) { rig = Number.isInteger(v.r) ? v.r : -1; return v.o; }
+    return null;
+  }
   function load(){
     const h = location.hash.slice(1);
-    if (h) { try { const arr = JSON.parse(decodeURIComponent(atob(h))); if (Array.isArray(arr) && arr.length >= 2) return arr; } catch(e){} }
-    try { const arr = JSON.parse(store.get("spinner.options")); if (Array.isArray(arr) && arr.length >= 2) return arr; } catch(e){}
+    if (h) { try { const arr = unpack(JSON.parse(decodeURIComponent(atob(h)))); if (arr) return arr; } catch(e){} }
+    try { const arr = unpack(JSON.parse(store.get("spinner.options"))); if (arr) return arr; } catch(e){}
     return DEFAULTS.slice();
   }
-  function persist(){ store.set("spinner.options", JSON.stringify(options)); }
+  function persist(){ store.set("spinner.options", JSON.stringify({o: options, r: rig})); }
   function shareLink(){
     const base = location.protocol.startsWith("http") ? location.origin + location.pathname : "";
-    return base + "#" + btoa(encodeURIComponent(JSON.stringify(options)));
+    return base + "#" + btoa(encodeURIComponent(JSON.stringify({o: options, r: rig})));
   }
   function clearHash(){ try { history.replaceState(null, "", location.pathname); } catch(e) { try { location.hash = ""; } catch(_){} } }
 
@@ -189,7 +202,7 @@
     if (Math.round(offset / ROW) > n * 10) build();
     spinning = true;
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const winner = Math.floor(Math.random() * n);
+    const winner = (rig >= 0 && rig < n) ? rig : Math.floor(Math.random() * n);
     const curIdx = Math.round(offset / ROW);
     const curOpt = ((curIdx % n) + n) % n;
     let steps = (winner - curOpt + n) % n;
@@ -211,8 +224,16 @@
   }
 
   // --- setup panel ---
+  const landOn = document.getElementById("landOn");
+  function fillLand(list, sel){
+    landOn.innerHTML = "";
+    const o = document.createElement("option"); o.value = -1; o.textContent = "Random"; landOn.appendChild(o);
+    list.forEach((t, i) => { const op = document.createElement("option"); op.value = i; op.textContent = t; landOn.appendChild(op); });
+    landOn.value = (sel >= 0 && sel < list.length) ? sel : -1;
+  }
   function openSetup(){
     ta.value = options.join("\n"); err.textContent = "";
+    fillLand(options, rig);
     linkPreview.textContent = shareLink();
     setup.classList.add("open"); ta.focus();
   }
@@ -221,7 +242,7 @@
     const arr = parse(ta.value);
     if (arr.length < 2) { err.textContent = "Add at least 2 options."; return; }
     if (arr.length > 40) { err.textContent = "Max 40 options."; return; }
-    options = arr; persist(); clearHash();
+    options = arr; rig = parseInt(landOn.value, 10); persist(); clearHash();
     build(); closeSetup();
   }
   document.getElementById("save").onclick = save;
@@ -229,13 +250,13 @@
   document.getElementById("copy").onclick = async (e) => {
     const arr = parse(ta.value);
     if (arr.length < 2) { err.textContent = "Add at least 2 options first."; return; }
-    options = arr; persist();
+    options = arr; rig = parseInt(landOn.value, 10); persist();
     const url = shareLink(); linkPreview.textContent = url;
     try { await navigator.clipboard.writeText(url); e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy share link", 1500); }
     catch(_) { err.textContent = "Copy failed. Select the link below and copy it."; }
   };
   document.getElementById("gear").onclick = openSetup;
-  ta.addEventListener("input", () => err.textContent = "");
+  ta.addEventListener("input", () => { err.textContent = ""; const cur = landOn.options[landOn.selectedIndex]?.textContent; const list = parse(ta.value); fillLand(list, list.indexOf(cur)); });
   setup.addEventListener("click", e => { if (e.target === setup) closeSetup(); });
 
   // --- input ---
